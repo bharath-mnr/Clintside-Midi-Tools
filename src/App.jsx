@@ -1,13 +1,11 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { SEOManager } from './utils/SEOManager';
 import HomePage from './pages/HomePage'; // This remains eagerly loaded for the entry point
 
 // --- Lazy-loaded Tool Components ---
-const PdfToImageConverter = lazy(() => import('./Components/PdfToImageConverter'));
-const PdfToTextConverter = lazy(() => import('./Components/PdfToTextConverter'));
 const TextMidiConverter = lazy(() => import('./Components/TextMidiConverter'));
 const MidiToTextConverter = lazy(() => import('./Components/MidiToTextConverter'));
-const AudioMidiConverter = lazy(() => import('./Components/AudioMidiConverter'));
+const ComptineDun = lazy(() => import('./Components/ComptineDun'));
+const Primavera = lazy(() => import('./Components/Primavera'));
 
 // Placeholder for missing components
 const PlaceholderTool = ({ title }) => (
@@ -51,11 +49,10 @@ const App = () => {
   // Route components mapping
   const routes = {
     home: () => <HomePage onNavigate={handleNavigate} />,
-    'pdf-to-image': () => <PdfToImageConverter />,
-    'pdf-to-text': () => <PdfToTextConverter />,
     'text-midi-converter': () => <TextMidiConverter />,
     'midi-to-text-converter': () => <MidiToTextConverter />,
-    'audio-midi-converter': () => <AudioMidiConverter />,
+    'comptine-dun': () => <ComptineDun />,
+    'primavera': () => <Primavera />,
   };
 
   // Get current component. Render a 404 if not found.
@@ -64,7 +61,6 @@ const App = () => {
   // Render the current page with SEO management and a suspense fallback
   return (
     <>
-      <SEOManager pageKey={currentPage} />
       <Suspense
         fallback={
           <div className="min-h-screen flex justify-center items-center bg-gray-50">

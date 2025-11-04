@@ -1,32 +1,12 @@
 import React from 'react'
 
-const HeroSection = () => {
-  return (
-    <section className="relative pt-20 pb-12 bg-gradient-to-br from-gray-50 via-white to-red-50 overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-10 left-10 w-40 h-40 bg-red-600 rounded-full filter blur-3xl"></div>
-        <div className="absolute bottom-5 right-10 w-48 h-48 bg-red-400 rounded-full filter blur-3xl"></div>
-      </div>
-      
-      <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <span className="inline-block px-3 py-1.5 bg-red-100 text-red-800 text-sm font-medium rounded-full mb-4">
-          🛠️ My Personal Dev Tools
-        </span>
-        
-        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-red-800 bg-clip-text text-transparent mb-4 leading-tight">
-          Client-Side <span className="text-red-600">File Converters</span>
-        </h1>
-      </div>
-    </section>
-  )
-}
 
 const ToolsGrid = ({ onNavigate }) => {
   const tools = [
     { name: 'Text-Midi Converter', path: 'text-midi-converter', icon: '🎵', desc: 'Convert Text files to MIDI format', color: 'from-red-500 to-red-600' },
     { name: 'Midi-Text Converter', path: 'midi-to-text-converter', icon: '🎵', desc: 'Convert MIDI files to Text format', color: 'from-red-500 to-red-600' },
-    { name: 'Audio-Midi Converter', path: 'audio-midi-converter', icon: '🎶', desc: 'Convert Audio files to MIDI format', color: 'from-red-500 to-red-600' },
+    { name: 'Comptine d\'un autre été', path: 'comptine-dun', icon: '🎼', desc: 'Analyze the music piece Comptine d\'un autre été', color: 'from-yellow-500 to-yellow-600' },
+    { name: 'Primavera', path: 'primavera', icon: '🌸', desc: 'A tool for Primavera analysis', color: 'from-green-500 to-green-600' },
   ]
 
   return (
@@ -34,10 +14,10 @@ const ToolsGrid = ({ onNavigate }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 to-red-800 bg-clip-text text-transparent mb-4">
-            Audio Tools
+            my personal Audio Tools & tracks breakdowns
           </h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            A small collection of personal audio file converters
+            A small collection of personal audio file converters and detailed musical analyses of popular tracks.
           </p>
         </div>
         
@@ -68,7 +48,6 @@ const ToolsGrid = ({ onNavigate }) => {
 const HomePage = ({ onNavigate }) => {
   return (
     <div className="min-h-screen bg-white">
-      <HeroSection />
       <ToolsGrid onNavigate={onNavigate} />
     </div>
   )
