@@ -6,6 +6,7 @@ const TextMidiConverter = lazy(() => import('./Components/TextMidiConverter'));
 const MidiToTextConverter = lazy(() => import('./Components/MidiToTextConverter'));
 const ComptineDun = lazy(() => import('./Components/ComptineDun'));
 const Primavera = lazy(() => import('./Components/Primavera'));
+const Passacaglia = lazy(() => import('./Components/Passacaglia'));
 
 // Placeholder for missing components
 const PlaceholderTool = ({ title }) => (
@@ -53,6 +54,7 @@ const App = () => {
     'midi-to-text-converter': () => <MidiToTextConverter />,
     'comptine-dun': () => <ComptineDun />,
     'primavera': () => <Primavera />,
+    'passacaglia': () => <Passacaglia />,
   };
 
   // Get current component. Render a 404 if not found.

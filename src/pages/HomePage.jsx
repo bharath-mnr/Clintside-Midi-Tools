@@ -7,6 +7,7 @@ const ToolsGrid = ({ onNavigate }) => {
     { name: 'Midi-Text Converter', path: 'midi-to-text-converter', icon: '🎵', desc: 'Convert MIDI files to Text format', color: 'from-red-500 to-red-600' },
     { name: 'Comptine d\'un autre été', path: 'comptine-dun', icon: '🎼', desc: 'Analyze the music piece Comptine d\'un autre été', color: 'from-yellow-500 to-yellow-600' },
     { name: 'Primavera', path: 'primavera', icon: '🌸', desc: 'A tool for Primavera analysis', color: 'from-green-500 to-green-600' },
+    { name: 'Passacaglia', path: 'passacaglia', icon: '🎻', desc: 'Detailed breakdown of Passacaglia', color: 'from-blue-500 to-blue-600' },
   ]
 
   return (
