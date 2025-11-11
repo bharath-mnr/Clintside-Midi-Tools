@@ -2656,11 +2656,8 @@ C5: .(12) X .(3)`);
     <div className="min-h-screen w-full bg-gradient-to-br from-gray-900 via-slate-900 to-black flex flex-col p-4 md:p-6">
       <div className="text-center mb-6 md:mb-10 bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-slate-700 shadow-xl">
         <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">
-          Text → MIDI Converter
+          MIDI Converter
         </h1>
-        <p className="mt-2 md:mt-3 text-gray-400 text-sm md:text-lg">
-          Turn compressed notation into playable MIDI
-        </p>
       </div>
 
       <main className="flex flex-col lg:flex-row flex-1 overflow-hidden mt-0 gap-4 md:gap-6">
@@ -2669,7 +2666,7 @@ C5: .(12) X .(3)`);
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl md:text-2xl font-semibold text-white flex items-center mb-3 md:mb-5">
                 <FileText className="w-5 h-5 md:w-6 md:h-6 mr-2 text-purple-400" />
-                Compressed Notation
+                Midi Notation
               </h2>
             </div>
 
