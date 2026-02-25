@@ -9,9 +9,9 @@ const Primavera          = lazy(() => import('./Components/Primavera'));
 const Passacaglia        = lazy(() => import('./Components/Passacaglia'));
 const OOPStudyGuide      = lazy(() => import('./Components/OOPStudyGuide'));
 const Texttojson         = lazy(() => import('./Components/Texttojson'));
-const JsonToText         = lazy(() => import('./Components/JsonToText'));
-const JsonToMidi         = lazy(() => import('./Components/JsonToMidi'));
-const MidiToJson         = lazy(() => import('./Components/MidiToJson'));
+const Jsontotext         = lazy(() => import('./Components/Jsontotext'));
+const Jsontomidi         = lazy(() => import('./Components/Jsontomidi'));
+const Miditojson         = lazy(() => import('./Components/Miditojson'));
 
 // Placeholder for missing / coming-soon components
 const PlaceholderTool = ({ title }) => (
@@ -69,9 +69,9 @@ const App = () => {
     'passacaglia':            () => <Passacaglia />,
     'oop-study-guide':        () => <OOPStudyGuide />,
     'text-to-json':           () => <Texttojson />,
-    'json-to-text':           () => <JsonToText />,
-    'json-to-midi':           () => <JsonToMidi />,
-    'midi-to-json':           () => <MidiToJson />,
+    'json-to-text':           () => <Jsontotext />,
+    'json-to-midi':           () => <Jsontomidi />,
+    'midi-to-json':           () => <Miditojson />,
   };
 
   const RenderedComponent = routes[currentPage]
