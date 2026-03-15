@@ -12,6 +12,8 @@ const Texttojson         = lazy(() => import('./Components/Texttojson'));
 const Jsontotext         = lazy(() => import('./Components/Jsontotext'));
 const Jsontomidi         = lazy(() => import('./Components/Jsontomidi'));
 const Miditojson         = lazy(() => import('./Components/Miditojson'));
+const Aidevmastery       = lazy(() => import('./Components/Aidevmastery'));
+const Mixing             = lazy(() => import('./Components/Mixing'));    
 
 // Placeholder for missing / coming-soon components
 const PlaceholderTool = ({ title }) => (
@@ -72,6 +74,8 @@ const App = () => {
     'json-to-text':           () => <Jsontotext />,
     'json-to-midi':           () => <Jsontomidi />,
     'midi-to-json':           () => <Miditojson />,
+    'ai-dev-mastery':         () => <Aidevmastery/>,
+    'mixing':                 () => <Mixing/>,
   };
 
   const RenderedComponent = routes[currentPage]

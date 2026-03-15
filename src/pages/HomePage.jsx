@@ -71,6 +71,20 @@ const tools = [
     desc: 'Upload a .mid file and extract its contents as Generation JSON',
     color: 'from-teal-500 to-cyan-600',
   },
+  {
+    name: 'Ai dev mastery',
+    path: 'ai-dev-mastery',
+    icon: '📂',
+    desc: 'learn new dev',
+    color: 'from-teal-500 to-cyan-600',
+  },
+  {
+    name: 'Mixing',
+    path: 'mixing',
+    icon: '📂',
+    desc: 'mixing tips',
+    color: 'from-teal-500 to-cyan-600',
+  },
 ]
 
 const ToolCard = ({ tool, onNavigate, index }) => (
