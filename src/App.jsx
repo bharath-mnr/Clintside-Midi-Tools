@@ -12,6 +12,8 @@ const Texttojson         = lazy(() => import('./Components/Texttojson'));
 const Jsontotext         = lazy(() => import('./Components/Jsontotext'));
 const Jsontomidi         = lazy(() => import('./Components/Jsontomidi'));
 const Miditojson         = lazy(() => import('./Components/Miditojson'));
+const Stringtomidi       = lazy(() => import('./Components/Stringtomidi'));
+const Miditostring       = lazy(() => import('./Components/Miditostring'));
 const Aidevmastery       = lazy(() => import('./Components/Aidevmastery'));
 const Mixing             = lazy(() => import('./Components/Mixing'));    
 
@@ -74,6 +76,8 @@ const App = () => {
     'json-to-text':           () => <Jsontotext />,
     'json-to-midi':           () => <Jsontomidi />,
     'midi-to-json':           () => <Miditojson />,
+    'string-to-midi':         () => <Stringtomidi/>,
+    'midi-to-string':         () => <Miditostring/>,
     'ai-dev-mastery':         () => <Aidevmastery/>,
     'mixing':                 () => <Mixing/>,
   };

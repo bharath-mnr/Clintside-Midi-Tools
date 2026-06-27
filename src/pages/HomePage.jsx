@@ -72,6 +72,20 @@ const tools = [
     color: 'from-teal-500 to-cyan-600',
   },
   {
+    name: 'STRING → MIDI',
+    path: 'string-to-midi',
+    icon: '🎹',
+    desc: 'Convert Generation String directly into a downloadable .mid file',
+    color: 'from-orange-500 to-amber-600',
+  },
+  {
+    name: 'MIDI → STRING',
+    path: 'midi-to-string',
+    icon: '📂',
+    desc: 'Upload a .mid file and extract its contents as Generation String',
+    color: 'from-teal-500 to-cyan-600',
+  },
+  {
     name: 'Ai dev mastery',
     path: 'ai-dev-mastery',
     icon: '📂',
