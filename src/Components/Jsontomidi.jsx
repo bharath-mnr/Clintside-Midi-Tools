@@ -471,8 +471,435 @@
 
 
 
+// import React, { useState } from 'react';
+// import { Activity, AlertTriangle, Download } from 'lucide-react';
+
+// // ─────────────────────────────────────────────
+// // NOTE MAP
+// // ─────────────────────────────────────────────
+// const noteMap = {
+//   'C':0,'C#':1,'DB':1,'D':2,'D#':3,'EB':3,
+//   'E':4,'F':5,'F#':6,'GB':6,'G':7,'G#':8,'AB':8,
+//   'A':9,'A#':10,'BB':10,'B':11
+// };
+
+// // ─────────────────────────────────────────────
+// // SHORTHAND NORMALISER
+// // Expands compact note fields to full names.
+// // p→pitch, s→start_subdivision, d→duration_subdivisions
+// // o→offset_percent (default 0), c→end_cutoff_percent (default null)
+// // velocity always 100 (removed from schema)
+// // ─────────────────────────────────────────────
+// function normaliseNote(n) {
+//   return {
+//     pitch:                 n.pitch                ?? n.p,
+//     start_subdivision:     n.start_subdivision    ?? n.s ?? 0,
+//     offset_percent:        n.offset_percent       ?? n.o ?? 0,
+//     duration_subdivisions: n.duration_subdivisions ?? n.d ?? 4,
+//     end_cutoff_percent:    n.end_cutoff_percent   ?? n.c ?? null,
+//     velocity:              100   // always fixed
+//   };
+// }
+
+// function normaliseBar(b) {
+//   return {
+//     bar_number: b.bar_number ?? b.bn,
+//     notes: (b.notes ?? []).map(normaliseNote)
+//   };
+// }
+
+// // ─────────────────────────────────────────────
+// // ENGINE: JSON → MIDI
+// // ─────────────────────────────────────────────
+// class JsonToMidiEngine {
+
+//   static getSubdivisionsPerBar(timeSigStr) {
+//     const [num, den] = timeSigStr.split('/').map(Number);
+//     const subs = num * (16 / den);
+//     if (!Number.isInteger(subs)) throw new Error(`Invalid time signature: ${timeSigStr}`);
+//     return subs;
+//   }
+
+//   static pitchToMidi(pitch) {
+//     const match = pitch.match(/^([A-G][#Bb]?)(-?\d+)$/i);
+//     if (!match) throw new Error(`Invalid pitch: ${pitch}`);
+//     const noteName = match[1].toUpperCase();
+//     const octave   = parseInt(match[2]);
+//     if (!(noteName in noteMap)) throw new Error(`Unknown note: ${noteName}`);
+//     return (octave + 1) * 12 + noteMap[noteName];
+//   }
+
+//   static writeVariableLength(value) {
+//     let buffer = value & 0x7F;
+//     const bytes = [];
+//     while ((value >>= 7) > 0) { buffer <<= 8; buffer |= (value & 0x7F) | 0x80; }
+//     while (true) { bytes.push(buffer & 0xFF); if (buffer & 0x80) buffer >>= 8; else break; }
+//     return bytes;
+//   }
+
+//   static jsonToMidiEvents(json) {
+//     const { tempo, time_signature } = json;
+//     const bars = json.bars.map(normaliseBar);
+
+//     const timeSigParts        = time_signature.split('/').map(Number);
+//     const timeSig             = { numerator: timeSigParts[0], denominator: timeSigParts[1] };
+//     const ticksPerQuarter     = 480;
+//     const subdivisionsPerBar  = this.getSubdivisionsPerBar(time_signature);
+//     const barTicks            = ticksPerQuarter * timeSig.numerator * (4 / timeSig.denominator);
+//     const ticksPerSubdivision = barTicks / subdivisionsPerBar;
+
+//     const midiEvents = [];
+
+//     for (const bar of bars) {
+//       if (!bar.notes) continue;
+//       const barBaseTick = (bar.bar_number - 1) * barTicks;
+
+//       for (const note of bar.notes) {
+//         const midiPitch = this.pitchToMidi(note.pitch);
+//         const velocity  = 100; // fixed
+
+//         const offsetFraction = (note.offset_percent || 0) / 100;
+//         const startTick = barBaseTick
+//           + note.start_subdivision * ticksPerSubdivision
+//           + offsetFraction * ticksPerSubdivision;
+
+//         let durationTicks;
+//         if (note.duration_subdivisions === 0) {
+//           const cutoff = (note.end_cutoff_percent || 50) / 100;
+//           durationTicks = cutoff * ticksPerSubdivision;
+//         } else {
+//           durationTicks = note.duration_subdivisions * ticksPerSubdivision;
+//           if (note.end_cutoff_percent !== null && note.end_cutoff_percent !== undefined) {
+//             durationTicks = (note.duration_subdivisions - 1) * ticksPerSubdivision
+//               + (note.end_cutoff_percent / 100) * ticksPerSubdivision;
+//           }
+//         }
+
+//         if (durationTicks <= 0) continue;
+//         const endTick = startTick + durationTicks;
+//         midiEvents.push({ tick: startTick, type: 'on',  pitch: midiPitch, velocity });
+//         midiEvents.push({ tick: endTick,   type: 'off', pitch: midiPitch, velocity: 0 });
+//       }
+//     }
+
+//     midiEvents.sort((a, b) => {
+//       if (a.tick !== b.tick) return a.tick - b.tick;
+//       if (a.type === 'off' && b.type === 'on') return -1;
+//       if (a.type === 'on'  && b.type === 'off') return 1;
+//       return a.pitch - b.pitch;
+//     });
+
+//     return { midiEvents, tempo, timeSig, ticksPerQuarter };
+//   }
+
+//   static generateMidiBytes(midiEvents, tempo, timeSig, ticksPerQuarter) {
+//     const data = [];
+//     const writeBytes = (bytes) => bytes.forEach(b => data.push(b & 0xFF));
+//     const writeInt   = (value, numBytes) => {
+//       for (let i = numBytes - 1; i >= 0; i--) data.push((value >> (8 * i)) & 0xFF);
+//     };
+
+//     writeBytes([0x4D,0x54,0x68,0x64]);
+//     writeInt(6,4); writeInt(0,2); writeInt(1,2); writeInt(ticksPerQuarter,2);
+
+//     const trackData = [];
+//     trackData.push(...this.writeVariableLength(0));
+//     trackData.push(0xFF,0x51,0x03);
+//     const us = Math.round(60000000 / tempo);
+//     trackData.push((us>>16)&0xFF,(us>>8)&0xFF,us&0xFF);
+
+//     trackData.push(...this.writeVariableLength(0));
+//     trackData.push(0xFF,0x58,0x04);
+//     trackData.push(timeSig.numerator, Math.log2(timeSig.denominator), 24, 8);
+
+//     trackData.push(...this.writeVariableLength(0));
+//     trackData.push(0xC0,0x00);
+
+//     let lastTick = 0;
+//     for (const event of midiEvents) {
+//       const deltaTime = Math.max(0, Math.round(event.tick - lastTick));
+//       trackData.push(...this.writeVariableLength(deltaTime));
+//       if (event.type === 'on') trackData.push(0x90, event.pitch&0x7F, event.velocity&0x7F);
+//       else                     trackData.push(0x80, event.pitch&0x7F, 0x40);
+//       lastTick += deltaTime;
+//     }
+
+//     trackData.push(...this.writeVariableLength(0));
+//     trackData.push(0xFF,0x2F,0x00);
+
+//     writeBytes([0x4D,0x54,0x72,0x6B]);
+//     writeInt(trackData.length,4);
+//     writeBytes(trackData);
+//     return new Uint8Array(data);
+//   }
+
+//   static convert(jsonStr) {
+//     const json = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+//     if (!json.bars || json.bars.length === 0) throw new Error('No bars found');
+//     if (!json.time_signature) throw new Error('Missing time_signature');
+//     if (!json.tempo) throw new Error('Missing tempo');
+//     const { midiEvents, tempo, timeSig, ticksPerQuarter } = this.jsonToMidiEvents(json);
+//     return this.generateMidiBytes(midiEvents, tempo, timeSig, ticksPerQuarter);
+//   }
+// }
+
+// // ─────────────────────────────────────────────
+// // DEFAULT EXAMPLE — compact shorthand format
+// // ─────────────────────────────────────────────
+// const DEFAULT_INPUT = JSON.stringify({
+//   tempo: 85,
+//   time_signature: "4/4",
+//   key: "Dm",
+//   subdivisions_per_bar: 16,
+//   bars: [
+//     { bn: 1, notes: [
+//       { p: "D2", s: 0, d: 16 },
+//       { p: "F4", s: 4, d: 4 },
+//       { p: "A4", s: 8, d: 8 }
+//     ]},
+//     { bn: 2, notes: [
+//       { p: "D2", s: 0, d: 16 },
+//       { p: "A4", s: 0, d: 8 }
+//     ]}
+//   ]
+// }, null, 2);
+
+// // ─────────────────────────────────────────────
+// // COMPONENT
+// // ─────────────────────────────────────────────
+// export default function JsonToMidi() {
+//   const [input,        setInput]        = useState(DEFAULT_INPUT);
+//   const [isProcessing, setIsProcessing] = useState(false);
+//   const [errors,       setErrors]       = useState([]);
+//   const [jsonValid,    setJsonValid]    = useState(true);
+//   const [stats,        setStats]        = useState(null);
+//   const [converted,    setConverted]    = useState(false);
+
+//   const handleInputChange = (val) => {
+//     setInput(val);
+//     setConverted(false);
+//     try { JSON.parse(val); setJsonValid(true); } catch { setJsonValid(false); }
+//   };
+
+//   const handleConvert = () => {
+//     setIsProcessing(true);
+//     setErrors([]);
+//     setStats(null);
+//     setConverted(false);
+
+//     setTimeout(() => {
+//       try {
+//         const json      = JSON.parse(input);
+//         const midiBytes = JsonToMidiEngine.convert(json);
+
+//         const blob = new Blob([midiBytes], { type: 'audio/midi' });
+//         const url  = URL.createObjectURL(blob);
+//         const a    = document.createElement('a');
+//         a.href     = url;
+//         a.download = `${json.key || 'composition'}_${json.tempo}bpm.mid`;
+//         document.body.appendChild(a);
+//         a.click();
+//         URL.revokeObjectURL(url);
+//         document.body.removeChild(a);
+
+//         const totalNotes = json.bars.reduce((acc, b) => acc + ((b.notes ?? []).length), 0);
+//         setStats({
+//           bars:    json.bars.length,
+//           notes:   totalNotes,
+//           tempo:   json.tempo,
+//           key:     json.key || '?',
+//           timeSig: json.time_signature,
+//           size:    `${(midiBytes.length / 1024).toFixed(1)} KB`
+//         });
+//         setConverted(true);
+//       } catch (err) {
+//         setErrors([err.message || 'Conversion failed']);
+//       } finally {
+//         setIsProcessing(false);
+//       }
+//     }, 0);
+//   };
+
+//   return (
+//     <div className="min-h-screen w-full bg-gradient-to-br from-gray-900 via-slate-900 to-black p-4 md:p-6 flex flex-col">
+
+//       {/* Header */}
+//       <div className="text-center mb-6 bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl p-6 border border-slate-700 shadow-xl">
+//         <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 bg-clip-text text-transparent">
+//           JSON → MIDI Converter
+//         </h1>
+//         <p className="mt-2 text-gray-400 text-sm">
+//           Compact shorthand format · velocity fixed at 100 · cross-bar auto-handled
+//         </p>
+//         <div className="flex items-center justify-center gap-3 mt-3 flex-wrap text-xs">
+//           <span className="px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-mono">p s d (+ o c optional)</span>
+//           <span className="text-slate-500">→</span>
+//           <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-mono">binary converter</span>
+//           <span className="text-slate-500">→</span>
+//           <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-mono">.mid download</span>
+//         </div>
+//       </div>
+
+//       {/* Main Grid */}
+//       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 flex-1">
+
+//         {/* LEFT — JSON Input */}
+//         <div className="flex flex-col bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl p-4 md:p-6 border border-violet-500/20 shadow-xl">
+//           <div className="flex items-center justify-between mb-4">
+//             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+//               <span className="text-violet-400 font-mono">{'{ }'}</span>
+//               Compact JSON Input
+//             </h2>
+//             <span className={`text-xs px-2 py-1 rounded-full font-mono border ${
+//               !input.trim()
+//                 ? 'bg-slate-700/30 border-slate-600/20 text-slate-500'
+//                 : jsonValid
+//                   ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+//                   : 'bg-red-500/10 border-red-500/20 text-red-400'
+//             }`}>
+//               {!input.trim() ? 'empty' : jsonValid ? '✓ valid' : '✗ invalid'}
+//             </span>
+//           </div>
+
+//           <textarea
+//             value={input}
+//             onChange={e => handleInputChange(e.target.value)}
+//             spellCheck={false}
+//             className={`flex-1 w-full min-h-64 md:min-h-96 bg-black/60 border rounded-xl p-4 text-gray-100 font-mono resize-none text-xs leading-relaxed transition-all focus:outline-none focus:ring-2 ${
+//               !input.trim() || jsonValid
+//                 ? 'border-slate-700 focus:ring-violet-500/40 focus:border-violet-500/30'
+//                 : 'border-red-500/40 focus:ring-red-500/30'
+//             }`}
+//           />
+
+//           <button
+//             onClick={handleConvert}
+//             disabled={isProcessing || !input.trim() || !jsonValid}
+//             className="mt-4 px-6 py-3 bg-gradient-to-r from-cyan-500 via-blue-500 to-violet-500 hover:from-cyan-400 hover:to-violet-400 disabled:from-gray-600 disabled:to-gray-700 text-white rounded-xl font-semibold transition-all shadow-lg flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+//           >
+//             {isProcessing ? (
+//               <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 0 1 4 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>Generating MIDI...</>
+//             ) : (
+//               <><Download className="w-4 h-4" />Convert & Download MIDI</>
+//             )}
+//           </button>
+//         </div>
+
+//         {/* RIGHT — Reference + Status */}
+//         <div className="flex flex-col gap-4">
+//           <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl p-4 md:p-6 border border-blue-500/20 shadow-xl flex-1">
+//             <h2 className="text-lg font-semibold text-white mb-4">Compact Field Reference</h2>
+
+//             {/* Required fields */}
+//             <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Required</p>
+//             <div className="space-y-1 mb-4">
+//               {[
+//                 ['p', 'pitch',               '"C4", "F#3", "Bb5"'],
+//                 ['s', 'start_subdivision',   '0–15 (4/4) · 0–11 (3/4 or 6/8)'],
+//                 ['d', 'duration_subdivisions','4=quarter · 8=half · 16=whole'],
+//               ].map(([sh, full, hint]) => (
+//                 <div key={sh} className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+//                   <code className="text-cyan-400 text-xs w-4 font-mono font-bold">{sh}</code>
+//                   <code className="text-slate-400 text-xs w-32 font-mono">{full}</code>
+//                   <span className="text-slate-300 text-xs">{hint}</span>
+//                 </div>
+//               ))}
+//             </div>
+
+//             {/* Optional fields */}
+//             <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Optional (omit = default)</p>
+//             <div className="space-y-1 mb-4">
+//               {[
+//                 ['o', 'offset_percent',      '0 (default, omit) · 15–25 = swing'],
+//                 ['c', 'end_cutoff_percent',  'null (default, omit) · 50–80 = staccato'],
+//               ].map(([sh, full, hint]) => (
+//                 <div key={sh} className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+//                   <code className="text-yellow-400 text-xs w-4 font-mono font-bold">{sh}</code>
+//                   <code className="text-slate-400 text-xs w-32 font-mono">{full}</code>
+//                   <span className="text-slate-300 text-xs">{hint}</span>
+//                 </div>
+//               ))}
+//             </div>
+
+//             {/* Removed */}
+//             <div className="p-3 bg-red-500/5 border border-red-500/15 rounded-lg mb-4">
+//               <p className="text-red-400 text-xs">
+//                 <span className="font-semibold">velocity — removed.</span> Client sets all notes to 100 automatically. Never include it in JSON output.
+//               </p>
+//             </div>
+
+//             {/* Duration table */}
+//             <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Duration reference (4/4)</p>
+//             <div className="grid grid-cols-4 gap-1 text-xs font-mono">
+//               {[['d=1','16th'],['d=2','8th'],['d=4','qtr'],['d=8','half'],
+//                 ['d=16','whole'],['d=32','2 bars'],['d=48','3 bars'],['d=64','4 bars']
+//               ].map(([d, label]) => (
+//                 <div key={d} className="bg-black/30 rounded p-1.5 text-center border border-slate-700/50">
+//                   <div className="text-cyan-400">{d}</div>
+//                   <div className="text-slate-500">{label}</div>
+//                 </div>
+//               ))}
+//             </div>
+
+//             <div className="mt-4 p-3 bg-blue-500/5 border border-blue-500/15 rounded-lg">
+//               <p className="text-blue-300 text-xs">
+//                 <span className="font-semibold">Cross-bar:</span> set <code className="text-cyan-400">d</code> beyond 1 bar (e.g. d:32 = 2 bars in 4/4). Declare once in starting bar only. Empty bars still need <code className="text-cyan-400">{`{bn:N, notes:[]}`}</code>.
+//               </p>
+//             </div>
+//           </div>
+
+//           {/* Status */}
+//           <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl p-4 border border-slate-600/30 shadow-xl">
+//             {errors.length > 0 ? (
+//               <div>
+//                 <h4 className="font-semibold text-red-400 mb-2 flex items-center gap-1.5 text-sm">
+//                   <AlertTriangle className="w-4 h-4" /> Error
+//                 </h4>
+//                 <ul className="text-red-300 text-xs space-y-1">{errors.map((e,i) => <li key={i}>• {e}</li>)}</ul>
+//               </div>
+//             ) : converted && stats ? (
+//               <div>
+//                 <h4 className="font-semibold text-cyan-400 mb-3 flex items-center gap-1.5 text-sm">
+//                   <Download className="w-4 h-4" /> MIDI Downloaded
+//                 </h4>
+//                 <div className="grid grid-cols-6 gap-2">
+//                   {[['Bars',stats.bars],['Notes',stats.notes],['BPM',stats.tempo],['Key',stats.key],['Time',stats.timeSig],['Size',stats.size]].map(([l,v]) => (
+//                     <div key={l} className="bg-black/30 rounded-lg p-2 text-center border border-slate-700/50">
+//                       <div className="text-white font-bold text-sm">{v}</div>
+//                       <div className="text-slate-500 text-xs">{l}</div>
+//                     </div>
+//                   ))}
+//                 </div>
+//               </div>
+//             ) : (
+//               <div className="flex items-center gap-2 text-sm text-slate-400">
+//                 <Activity className="w-4 h-4 text-slate-500" />
+//                 Paste compact JSON and click Convert
+//               </div>
+//             )}
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import React, { useState } from 'react';
-import { Activity, AlertTriangle, Download } from 'lucide-react';
+import { Activity, AlertTriangle, Download, Sparkles } from 'lucide-react';
 
 // ─────────────────────────────────────────────
 // NOTE MAP
@@ -489,8 +916,21 @@ const noteMap = {
 // p→pitch, s→start_subdivision, d→duration_subdivisions
 // o→offset_percent (default 0), c→end_cutoff_percent (default null)
 // velocity always 100 (removed from schema)
+// Defensive: a malformed note (null, not an object) becomes a
+// "blank" note rather than crashing — the missing-pitch check
+// downstream will catch it and report it with bar/note location.
 // ─────────────────────────────────────────────
 function normaliseNote(n) {
+  if (!n || typeof n !== 'object') {
+    return {
+      pitch: undefined,
+      start_subdivision: 0,
+      offset_percent: 0,
+      duration_subdivisions: 4,
+      end_cutoff_percent: null,
+      velocity: 100
+    };
+  }
   return {
     pitch:                 n.pitch                ?? n.p,
     start_subdivision:     n.start_subdivision    ?? n.s ?? 0,
@@ -502,10 +942,212 @@ function normaliseNote(n) {
 }
 
 function normaliseBar(b) {
+  // If "notes" is missing or isn't an array, treat it as an empty bar
+  // instead of crashing — lenient by design.
+  const notesArr = Array.isArray(b.notes) ? b.notes : [];
   return {
     bar_number: b.bar_number ?? b.bn,
-    notes: (b.notes ?? []).map(normaliseNote)
+    notes: notesArr.map(normaliseNote)
   };
+}
+
+// ─────────────────────────────────────────────
+// LENIENT JSON SANITIZER
+// Cleans up the kind of "almost JSON" an LLM sometimes streams out:
+//   - // line comments and /* ... */ block comments
+//     (e.g. "/* STREAMING_CHUNK:Phase 2... */")
+//   - JS wrapper code: const track = { ... }; export default track;
+//   - unquoted object keys: { tempo: 95 }  →  { "tempo": 95 }
+//   - single-quoted strings: 'D minor'     →  "D minor"
+//   - trailing commas: [1, 2,]             →  [1, 2]
+// All steps are string-aware (they don't touch text inside actual
+// JSON string values) and are no-ops on input that's already clean.
+// ─────────────────────────────────────────────
+
+function stripComments(input) {
+  let result = '';
+  let inString = false;
+  let stringChar = '';
+  const len = input.length;
+  let i = 0;
+  while (i < len) {
+    const ch = input[i];
+    const next = i + 1 < len ? input[i + 1] : '';
+
+    if (inString) {
+      result += ch;
+      if (ch === '\\' && i + 1 < len) {
+        result += input[i + 1];
+        i += 2;
+        continue;
+      }
+      if (ch === stringChar) inString = false;
+      i++;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      inString = true;
+      stringChar = ch;
+      result += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '/' && next === '/') {
+      i += 2;
+      while (i < len && input[i] !== '\n') i++;
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      i += 2;
+      while (i < len && !(input[i] === '*' && input[i + 1] === '/')) {
+        if (input[i] === '\n') result += '\n'; // keep line numbers accurate
+        i++;
+      }
+      i += 2; // skip the closing */
+      continue;
+    }
+
+    result += ch;
+    i++;
+  }
+  return result;
+}
+
+// Finds the outermost { ... } or [ ... ] in the string and returns just
+// that slice, discarding anything before/after (e.g. "const track = "
+// and "; export default track;").
+function extractJsonLiteral(str) {
+  let start = -1;
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === '{' || str[i] === '[') { start = i; break; }
+  }
+  if (start === -1) {
+    throw new Error('No JSON object or array ("{" or "[") found anywhere in the input.');
+  }
+
+  let depth = 0;
+  let inString = false;
+  let stringChar = '';
+  let end = -1;
+
+  for (let i = start; i < str.length; i++) {
+    const ch = str[i];
+    if (inString) {
+      if (ch === '\\') { i++; continue; }
+      if (ch === stringChar) inString = false;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { inString = true; stringChar = ch; continue; }
+    if (ch === '{' || ch === '[') depth++;
+    else if (ch === '}' || ch === ']') {
+      depth--;
+      if (depth === 0) { end = i; break; }
+    }
+  }
+
+  if (end === -1) {
+    throw new Error('Could not find a matching closing bracket — the JSON may be truncated. Make sure the entire object/array was pasted.');
+  }
+
+  const hadWrapper = str.slice(0, start).trim().length > 0 || str.slice(end + 1).trim().length > 0;
+  return { literal: str.slice(start, end + 1), hadWrapper };
+}
+
+// Quotes unquoted object keys and normalizes single-quoted strings to
+// double-quoted, without touching the contents of already-valid strings.
+function lenientJsonClean(str) {
+  let result = '';
+  let i = 0;
+  const len = str.length;
+
+  while (i < len) {
+    const ch = str[i];
+
+    if (ch === '"' || ch === "'") {
+      const quote = ch;
+      let j = i + 1;
+      let content = '';
+      while (j < len && str[j] !== quote) {
+        if (str[j] === '\\' && j + 1 < len) {
+          content += str[j] + str[j + 1];
+          j += 2;
+          continue;
+        }
+        content += str[j];
+        j++;
+      }
+      if (quote === "'") {
+        // a single-quoted string becomes double-quoted — escape any
+        // unescaped " inside it so the result stays valid JSON
+        content = content.replace(/\\?"/g, m => (m === '"' ? '\\"' : m));
+      }
+      result += '"' + content + '"';
+      i = j + 1;
+      continue;
+    }
+
+    const remainder = str.slice(i);
+    const keyMatch = /^([A-Za-z_$][A-Za-z0-9_$]*)\s*:/.exec(remainder);
+    if (keyMatch) {
+      let k = result.length - 1;
+      while (k >= 0 && /\s/.test(result[k])) k--;
+      const prevChar = k >= 0 ? result[k] : '{';
+      // only treat it as a key if it directly follows "{" or "," —
+      // avoids mangling things that merely look like "word:"
+      if (prevChar === '{' || prevChar === ',') {
+        result += `"${keyMatch[1]}"`;
+        i += keyMatch[1].length;
+        continue;
+      }
+    }
+
+    result += ch;
+    i++;
+  }
+
+  return result;
+}
+
+function getLineCol(str, pos) {
+  let line = 1, col = 1;
+  for (let i = 0; i < pos && i < str.length; i++) {
+    if (str[i] === '\n') { line++; col = 1; } else col++;
+  }
+  return { line, col };
+}
+
+// Wraps JSON.parse to surface a line/column + a snippet with a caret
+// pointing at the problem, instead of just "Unexpected token".
+function parseJsonWithLocation(str) {
+  try {
+    return JSON.parse(str);
+  } catch (err) {
+    const msg = err.message || 'Invalid JSON';
+    let detail = msg;
+
+    const lineColMatch = msg.match(/line (\d+) column (\d+)/);
+    const posMatch = msg.match(/position (\d+)/);
+
+    if (posMatch) {
+      const pos = parseInt(posMatch[1], 10);
+      const { line, col } = lineColMatch
+        ? { line: parseInt(lineColMatch[1], 10), col: parseInt(lineColMatch[2], 10) }
+        : getLineCol(str, pos);
+
+      const snippetStart = Math.max(0, pos - 35);
+      const snippetEnd = Math.min(str.length, pos + 35);
+      const snippet = str.slice(snippetStart, snippetEnd).replace(/\n/g, '\u23ce');
+      const caretPos = pos - snippetStart;
+
+      detail = `${msg}\nLocation: line ${line}, column ${col}\n…${snippet}…\n${' '.repeat(caretPos + 1)}^`;
+    }
+
+    const e = new Error(`JSON syntax error after auto-cleaning: ${detail}`);
+    throw e;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -516,17 +1158,30 @@ class JsonToMidiEngine {
   static getSubdivisionsPerBar(timeSigStr) {
     const [num, den] = timeSigStr.split('/').map(Number);
     const subs = num * (16 / den);
-    if (!Number.isInteger(subs)) throw new Error(`Invalid time signature: ${timeSigStr}`);
+    if (!num || !den || !Number.isInteger(subs)) {
+      throw new Error(`Invalid time signature "${timeSigStr}" — expected something like "4/4" or "3/4".`);
+    }
     return subs;
   }
 
   static pitchToMidi(pitch) {
+    if (typeof pitch !== 'string' || !pitch.trim()) {
+      throw new Error(`Missing or invalid pitch value: ${JSON.stringify(pitch)}.`);
+    }
     const match = pitch.match(/^([A-G][#Bb]?)(-?\d+)$/i);
-    if (!match) throw new Error(`Invalid pitch: ${pitch}`);
+    if (!match) {
+      throw new Error(`Invalid pitch format "${pitch}" — expected something like "C4", "F#3", or "Bb5".`);
+    }
     const noteName = match[1].toUpperCase();
-    const octave   = parseInt(match[2]);
-    if (!(noteName in noteMap)) throw new Error(`Unknown note: ${noteName}`);
-    return (octave + 1) * 12 + noteMap[noteName];
+    const octave   = parseInt(match[2], 10);
+    if (!(noteName in noteMap)) {
+      throw new Error(`Unknown note name "${match[1]}" in pitch "${pitch}".`);
+    }
+    const midiNum = (octave + 1) * 12 + noteMap[noteName];
+    if (midiNum < 0 || midiNum > 127) {
+      throw new Error(`Pitch "${pitch}" is outside the playable MIDI range (roughly C-1 to G9).`);
+    }
+    return midiNum;
   }
 
   static writeVariableLength(value) {
@@ -537,9 +1192,14 @@ class JsonToMidiEngine {
     return bytes;
   }
 
+  // Builds MIDI events bar-by-bar, note-by-note. Instead of throwing on
+  // the first bad note, it collects EVERY problem it finds (with bar
+  // number, note index, and pitch) and throws them all together at the
+  // end via `error.details`, so the UI can list every fix needed in one go.
   static jsonToMidiEvents(json) {
     const { tempo, time_signature } = json;
-    const bars = json.bars.map(normaliseBar);
+    const rawBars = Array.isArray(json.bars) ? json.bars : [];
+    const bars = rawBars.map(normaliseBar);
 
     const timeSigParts        = time_signature.split('/').map(Number);
     const timeSig             = { numerator: timeSigParts[0], denominator: timeSigParts[1] };
@@ -549,37 +1209,67 @@ class JsonToMidiEngine {
     const ticksPerSubdivision = barTicks / subdivisionsPerBar;
 
     const midiEvents = [];
+    const errors = [];
 
-    for (const bar of bars) {
-      if (!bar.notes) continue;
+    bars.forEach((bar, barIdx) => {
+      const barLabel = (typeof bar.bar_number === 'number' && !Number.isNaN(bar.bar_number))
+        ? bar.bar_number
+        : `#${barIdx + 1} (missing "bn")`;
+
+      if (typeof bar.bar_number !== 'number' || Number.isNaN(bar.bar_number)) {
+        errors.push({ bar: barLabel, note: null, pitch: null, message: 'Invalid or missing bar number ("bn"). This bar was skipped.' });
+        return;
+      }
+
       const barBaseTick = (bar.bar_number - 1) * barTicks;
 
-      for (const note of bar.notes) {
-        const midiPitch = this.pitchToMidi(note.pitch);
-        const velocity  = 100; // fixed
+      bar.notes.forEach((note, noteIdx) => {
+        try {
+          const midiPitch = this.pitchToMidi(note.pitch);
+          const velocity  = 100; // fixed
 
-        const offsetFraction = (note.offset_percent || 0) / 100;
-        const startTick = barBaseTick
-          + note.start_subdivision * ticksPerSubdivision
-          + offsetFraction * ticksPerSubdivision;
+          const offsetFraction = (note.offset_percent || 0) / 100;
+          const startTick = barBaseTick
+            + note.start_subdivision * ticksPerSubdivision
+            + offsetFraction * ticksPerSubdivision;
 
-        let durationTicks;
-        if (note.duration_subdivisions === 0) {
-          const cutoff = (note.end_cutoff_percent || 50) / 100;
-          durationTicks = cutoff * ticksPerSubdivision;
-        } else {
-          durationTicks = note.duration_subdivisions * ticksPerSubdivision;
-          if (note.end_cutoff_percent !== null && note.end_cutoff_percent !== undefined) {
-            durationTicks = (note.duration_subdivisions - 1) * ticksPerSubdivision
-              + (note.end_cutoff_percent / 100) * ticksPerSubdivision;
+          let durationTicks;
+          if (note.duration_subdivisions === 0) {
+            const cutoff = (note.end_cutoff_percent || 50) / 100;
+            durationTicks = cutoff * ticksPerSubdivision;
+          } else {
+            durationTicks = note.duration_subdivisions * ticksPerSubdivision;
+            if (note.end_cutoff_percent !== null && note.end_cutoff_percent !== undefined) {
+              durationTicks = (note.duration_subdivisions - 1) * ticksPerSubdivision
+                + (note.end_cutoff_percent / 100) * ticksPerSubdivision;
+            }
           }
-        }
 
-        if (durationTicks <= 0) continue;
-        const endTick = startTick + durationTicks;
-        midiEvents.push({ tick: startTick, type: 'on',  pitch: midiPitch, velocity });
-        midiEvents.push({ tick: endTick,   type: 'off', pitch: midiPitch, velocity: 0 });
-      }
+          if (!Number.isFinite(startTick) || startTick < 0) {
+            throw new Error(`Start position is invalid — check "s" (start_subdivision).`);
+          }
+          if (!Number.isFinite(durationTicks) || durationTicks <= 0) {
+            throw new Error(`Duration resolves to 0 or negative — check "d" (duration_subdivisions) and "c" (end_cutoff_percent).`);
+          }
+
+          const endTick = startTick + durationTicks;
+          midiEvents.push({ tick: startTick, type: 'on',  pitch: midiPitch, velocity });
+          midiEvents.push({ tick: endTick,   type: 'off', pitch: midiPitch, velocity: 0 });
+        } catch (err) {
+          errors.push({
+            bar: barLabel,
+            note: noteIdx + 1,
+            pitch: (note && note.pitch) ?? null,
+            message: err.message
+          });
+        }
+      });
+    });
+
+    if (errors.length > 0) {
+      const aggErr = new Error(`Found ${errors.length} note issue${errors.length > 1 ? 's' : ''} — see details below.`);
+      aggErr.details = errors;
+      throw aggErr;
     }
 
     midiEvents.sort((a, b) => {
@@ -633,13 +1323,50 @@ class JsonToMidiEngine {
     return new Uint8Array(data);
   }
 
-  static convert(jsonStr) {
-    const json = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
-    if (!json.bars || json.bars.length === 0) throw new Error('No bars found');
-    if (!json.time_signature) throw new Error('Missing time_signature');
-    if (!json.tempo) throw new Error('Missing tempo');
+  // Runs the full lenient-cleaning pipeline on a raw string and returns
+  // the parsed JSON plus a human-readable list of what it had to fix.
+  // A no-op (fixes: []) on input that's already clean.
+  static parseLenient(raw) {
+    if (typeof raw !== 'string') return { json: raw, fixes: [] };
+    const fixes = [];
+
+    const noComments = stripComments(raw);
+    if (noComments !== raw) fixes.push('Removed // and /* */ comments');
+
+    const { literal, hadWrapper } = extractJsonLiteral(noComments);
+    if (hadWrapper) fixes.push('Stripped surrounding code (e.g. "const x = …" / "export default …")');
+
+    const cleaned = lenientJsonClean(literal);
+    if (cleaned !== literal) fixes.push('Quoted unquoted keys and/or normalized single-quoted strings');
+
+    const noTrailingCommas = cleaned.replace(/,(\s*[}\]])/g, '$1');
+    if (noTrailingCommas !== cleaned) fixes.push('Removed trailing commas');
+
+    const json = parseJsonWithLocation(noTrailingCommas);
+    return { json, fixes };
+  }
+
+  // Main entry point. Accepts either a raw string (runs it through the
+  // lenient sanitizer first) or an already-parsed object.
+  static convert(input) {
+    let json;
+    let fixes = [];
+    if (typeof input === 'string') {
+      const parsed = this.parseLenient(input);
+      json = parsed.json;
+      fixes = parsed.fixes;
+    } else {
+      json = input;
+    }
+
+    if (!json || typeof json !== 'object') throw new Error('Input does not resolve to a JSON object.');
+    if (!Array.isArray(json.bars) || json.bars.length === 0) throw new Error('No "bars" array found (or it is empty).');
+    if (!json.time_signature) throw new Error('Missing "time_signature" (e.g. "4/4").');
+    if (!json.tempo) throw new Error('Missing "tempo" (BPM number).');
+
     const { midiEvents, tempo, timeSig, ticksPerQuarter } = this.jsonToMidiEvents(json);
-    return this.generateMidiBytes(midiEvents, tempo, timeSig, ticksPerQuarter);
+    const midiBytes = this.generateMidiBytes(midiEvents, tempo, timeSig, ticksPerQuarter);
+    return { midiBytes, fixes, json };
   }
 }
 
@@ -664,6 +1391,16 @@ const DEFAULT_INPUT = JSON.stringify({
   ]
 }, null, 2);
 
+// Turns one error-detail object into a readable line for the UI.
+function formatErrorDetail(d) {
+  const parts = [];
+  if (d.bar !== undefined && d.bar !== null) parts.push(`Bar ${d.bar}`);
+  if (d.note) parts.push(`Note ${d.note}`);
+  let head = parts.join(', ');
+  if (d.pitch) head += ` (pitch "${d.pitch}")`;
+  return `${head}: ${d.message}`;
+}
+
 // ─────────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────────
@@ -674,23 +1411,32 @@ export default function JsonToMidi() {
   const [jsonValid,    setJsonValid]    = useState(true);
   const [stats,        setStats]        = useState(null);
   const [converted,    setConverted]    = useState(false);
+  const [fixes,        setFixes]        = useState([]);
 
   const handleInputChange = (val) => {
     setInput(val);
     setConverted(false);
-    try { JSON.parse(val); setJsonValid(true); } catch { setJsonValid(false); }
+    try {
+      // Validity check runs through the same lenient pipeline used at
+      // convert time, so comments / wrappers / unquoted keys still
+      // show as "valid" while typing.
+      JsonToMidiEngine.parseLenient(val);
+      setJsonValid(true);
+    } catch {
+      setJsonValid(false);
+    }
   };
 
   const handleConvert = () => {
     setIsProcessing(true);
     setErrors([]);
     setStats(null);
+    setFixes([]);
     setConverted(false);
 
     setTimeout(() => {
       try {
-        const json      = JSON.parse(input);
-        const midiBytes = JsonToMidiEngine.convert(json);
+        const { midiBytes, fixes: appliedFixes, json } = JsonToMidiEngine.convert(input);
 
         const blob = new Blob([midiBytes], { type: 'audio/midi' });
         const url  = URL.createObjectURL(blob);
@@ -711,9 +1457,14 @@ export default function JsonToMidi() {
           timeSig: json.time_signature,
           size:    `${(midiBytes.length / 1024).toFixed(1)} KB`
         });
+        setFixes(appliedFixes);
         setConverted(true);
       } catch (err) {
-        setErrors([err.message || 'Conversion failed']);
+        if (err.details && Array.isArray(err.details)) {
+          setErrors(err.details.map(formatErrorDetail));
+        } else {
+          setErrors([err.message || 'Conversion failed']);
+        }
       } finally {
         setIsProcessing(false);
       }
@@ -729,7 +1480,7 @@ export default function JsonToMidi() {
           JSON → MIDI Converter
         </h1>
         <p className="mt-2 text-gray-400 text-sm">
-          Compact shorthand format · velocity fixed at 100 · cross-bar auto-handled
+          Compact shorthand format · auto-cleans comments &amp; code wrappers · pinpoints bar/note errors
         </p>
         <div className="flex items-center justify-center gap-3 mt-3 flex-wrap text-xs">
           <span className="px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-mono">p s d (+ o c optional)</span>
@@ -846,6 +1597,15 @@ export default function JsonToMidi() {
                 <span className="font-semibold">Cross-bar:</span> set <code className="text-cyan-400">d</code> beyond 1 bar (e.g. d:32 = 2 bars in 4/4). Declare once in starting bar only. Empty bars still need <code className="text-cyan-400">{`{bn:N, notes:[]}`}</code>.
               </p>
             </div>
+
+            <div className="mt-2 p-3 bg-emerald-500/5 border border-emerald-500/15 rounded-lg">
+              <p className="text-emerald-300 text-xs flex items-start gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                <span>
+                  <span className="font-semibold">Tolerant parsing:</span> <code className="text-cyan-400">// …</code> and <code className="text-cyan-400">{`/* … */`}</code> comments, a <code className="text-cyan-400">{`const x = {...}; export default x;`}</code> wrapper, unquoted keys, single-quoted strings, and trailing commas are all auto-cleaned before parsing — no need to hand-fix those.
+                </span>
+              </p>
+            </div>
           </div>
 
           {/* Status */}
@@ -853,9 +1613,13 @@ export default function JsonToMidi() {
             {errors.length > 0 ? (
               <div>
                 <h4 className="font-semibold text-red-400 mb-2 flex items-center gap-1.5 text-sm">
-                  <AlertTriangle className="w-4 h-4" /> Error
+                  <AlertTriangle className="w-4 h-4" /> {errors.length} issue{errors.length > 1 ? 's' : ''} found
                 </h4>
-                <ul className="text-red-300 text-xs space-y-1">{errors.map((e,i) => <li key={i}>• {e}</li>)}</ul>
+                <ul className="text-red-300 text-xs space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {errors.map((e, i) => (
+                    <li key={i} className="whitespace-pre-wrap font-mono leading-relaxed">• {e}</li>
+                  ))}
+                </ul>
               </div>
             ) : converted && stats ? (
               <div>
@@ -870,6 +1634,16 @@ export default function JsonToMidi() {
                     </div>
                   ))}
                 </div>
+                {fixes.length > 0 && (
+                  <div className="mt-3 p-2.5 bg-emerald-500/5 border border-emerald-500/15 rounded-lg">
+                    <p className="text-emerald-400 text-xs font-semibold mb-1 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Auto-cleaned before parsing
+                    </p>
+                    <ul className="text-emerald-300 text-xs space-y-0.5">
+                      {fixes.map((f, i) => <li key={i}>• {f}</li>)}
+                    </ul>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2 text-sm text-slate-400">
